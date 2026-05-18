@@ -9,12 +9,10 @@ export default function Home() {
       <section className="hero">
         <span className="badge">Trabajo final · Teoría de Códigos</span>
         <h1 className="title">
-          Proyecto completo: puntos + simuladores dinámicos
+          CodeLab: Simulador Interactivo de Teoría de Códigos
         </h1>
         <p className="subtitle">
-          Se conservan Fundamentos, Punto I, Punto II y Punto III con algoritmos
-          paso a paso. Además, se agregan tres secciones dinámicas:
-          Reed–Solomon, códigos lineales y códigos cíclicos.
+          Plataforma web interactiva para la construcción y análisis de códigos Reed–Solomon, lineales y cíclicos, con generación automática de resultados y simulación dinámica de parámetros en tiempo real.
         </p>
         <Latex
           block

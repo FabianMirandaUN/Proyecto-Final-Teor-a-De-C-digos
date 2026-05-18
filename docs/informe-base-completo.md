@@ -1,0 +1,1 @@
+Informe base completo con desarrollo de puntos y simuladores dinámicos.

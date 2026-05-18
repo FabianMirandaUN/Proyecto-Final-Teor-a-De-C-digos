@@ -1,0 +1,1 @@
+Proyecto completo basado en los requisitos del documento: construcción de códigos lineales, Reed-Solomon, equivalentes, operaciones, cíclicos, matrices generadoras y de control e implementación computacional.

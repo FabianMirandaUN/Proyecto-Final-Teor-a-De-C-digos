@@ -1,0 +1,1 @@
+import './globals.css';import type { Metadata } from 'next';export const metadata: Metadata={title:'Teoría de Códigos — Entrega final completa',description:'Puntos I, II, III y secciones dinámicas'};export default function RootLayout({children}:{children:React.ReactNode}){return <html lang="es"><body>{children}</body></html>}

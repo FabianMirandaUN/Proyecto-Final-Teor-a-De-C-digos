@@ -1,0 +1,1 @@
+import { Latex } from './Latex';export function toLatexMatrix(M:number[][]){if(!M.length)return '\\begin{bmatrix}\\end{bmatrix}';return `\\begin{bmatrix}${M.map(r=>r.join('&')).join('\\\\')}\\end{bmatrix}`}export default function MatrixLatex({matrix,name='G'}:{matrix:number[][];name?:string}){return <Latex block expr={`${name}= ${toLatexMatrix(matrix)}`}/>}

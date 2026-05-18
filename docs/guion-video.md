@@ -1,0 +1,1 @@
+Guion: presentar fundamentos, luego Punto I, Punto II, Punto III y finalmente las tres secciones dinámicas.

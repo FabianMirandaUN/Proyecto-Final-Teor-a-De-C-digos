@@ -1,0 +1,1 @@
+export default function Footer(){return <footer className="footer"><strong>Integrantes del grupo</strong><div className="members"><span className="member">Fabian Miranda</span><span className="member">Santiago Vieira</span><span className="member">Adriana Fajardo</span><span className="member">Maria Lobo</span></div></footer>}

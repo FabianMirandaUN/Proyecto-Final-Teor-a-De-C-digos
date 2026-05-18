@@ -1,0 +1,1 @@
+import katex from 'katex';export function Latex({expr,block=false}:{expr:string;block?:boolean}){const html=katex.renderToString(expr,{throwOnError:false,displayMode:block,strict:false});return <span className={block?'latex-block':'latex-inline'} dangerouslySetInnerHTML={{__html:html}}/>}

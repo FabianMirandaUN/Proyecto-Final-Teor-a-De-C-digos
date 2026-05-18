@@ -49,30 +49,18 @@ export default function Home() {
         <div className="three section">
           <div className="card">
             <h2>RS dinámico</h2>
-            <p className="text">
-              Según lo solicitado para Reed–Solomon: cuerpo, mensajes,
-              Vandermonde, H, algoritmo y validación.
-            </p>
             <Link href="/codigos-reedsolomon" className="btn">
               Abrir
             </Link>
           </div>
           <div className="card">
             <h2>Lineales dinámico</h2>
-            <p className="text">
-              Genera C, H, síndrome, equivalente, extensión, perforación y
-              reducción.
-            </p>
             <Link href="/codigos-lineales" className="btn">
               Abrir
             </Link>
           </div>
           <div className="card">
             <h2>Cíclicos dinámico</h2>
-            <p className="text">
-              Controla n, g(x), mensajes, G, H, productos m(x)g(x), perforación
-              y reducción.
-            </p>
             <Link href="/codigos-ciclicos" className="btn">
               Abrir
             </Link>

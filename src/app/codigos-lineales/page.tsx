@@ -185,9 +185,7 @@ function puncture(code: number[][], pos: number) {
 
 function shorten(code: number[][], pos: number) {
   return uniq(
-    code
-      .filter((c) => c[pos] === 0)
-      .map((c) => c.filter((_, i) => i !== pos))
+    code.filter((c) => c[pos] === 0).map((c) => c.filter((_, i) => i !== pos))
   );
 }
 
@@ -263,10 +261,12 @@ export default function Page() {
         </h1>
 
         <p className="subtitle">
-          Esta sección permite definir el espacio algebraico de trabajo,
-          construir códigos lineales a partir de una matriz generadora editable,
-          calcular la matriz de control, obtener síndromes y aplicar operaciones
-          como perforación, reducción y equivalencia de códigos.
+          Esta sección permite construir códigos lineales sobre cuerpos finitos
+          a partir de una matriz generadora editable <Latex expr={"G"} />. El
+          usuario puede modificar el valor de <Latex expr={"q"} />, generar el
+          código <Latex expr={"C=\\{uG:u\\in\\mathbb{F}_q^k\\}"} />, calcular la
+          matriz de control <Latex expr={"H"} />, obtener síndromes y aplicar
+          operaciones como equivalencia, extensión, perforación y reducción.
         </p>
       </section>
 
@@ -283,9 +283,9 @@ export default function Page() {
 
           <p className="text">
             El parámetro q define el conjunto de escalares usado en el código.
-            Cuando q es primo, se trabaja formalmente sobre el cuerpo finito
-            Fq. Si q no es primo, la interfaz realiza operaciones módulo q,
-            pero algunos elementos podrían no tener inverso multiplicativo.
+            Cuando q es primo, se trabaja formalmente sobre el cuerpo finito Fq.
+            Si q no es primo, la interfaz realiza operaciones módulo q, pero
+            algunos elementos podrían no tener inverso multiplicativo.
           </p>
 
           <span className={data.isField ? "pill ok" : "pill warn"}>
@@ -322,11 +322,7 @@ export default function Page() {
           <h2>2. Matriz generadora editable</h2>
 
           <label>Matriz G por filas</label>
-          <textarea
-            rows={6}
-            value={g}
-            onChange={(e) => setG(e.target.value)}
-          />
+          <textarea rows={6} value={g} onChange={(e) => setG(e.target.value)} />
 
           <p className="text">
             Cada fila de G representa un vector generador. Si G tiene k filas y
@@ -387,10 +383,7 @@ export default function Page() {
             pertenece al código si y solo si su síndrome es cero.
           </p>
 
-          <Latex
-            block
-            expr={`y\\in C\\Longleftrightarrow Hy^t=0`}
-          />
+          <Latex block expr={`y\\in C\\Longleftrightarrow Hy^t=0`} />
         </div>
       </section>
 
@@ -400,12 +393,10 @@ export default function Page() {
         <div className="algo-box">
           <ol>
             <li>
-              Definir el espacio algebraico de trabajo, es decir, seleccionar
-              q para trabajar sobre Fq.
+              Definir el espacio algebraico de trabajo, es decir, seleccionar q
+              para trabajar sobre Fq.
             </li>
-            <li>
-              Leer la matriz generadora G escrita por el usuario.
-            </li>
+            <li>Leer la matriz generadora G escrita por el usuario.</li>
             <li>
               Reducir todas las entradas de G módulo q para garantizar que sus
               coordenadas pertenezcan a Fq.
@@ -414,30 +405,16 @@ export default function Page() {
               Identificar k como el número de filas de G y n como el número de
               columnas.
             </li>
-            <li>
-              Generar todos los mensajes posibles u∈Fq^k.
-            </li>
-            <li>
-              Calcular el producto uG para cada mensaje.
-            </li>
-            <li>
-              Reducir cada coordenada de uG módulo q.
-            </li>
-            <li>
-              Guardar cada vector resultante como palabra código.
-            </li>
-            <li>
-              Eliminar duplicados, en caso de que existan.
-            </li>
-            <li>
-              Calcular el peso de Hamming de cada palabra.
-            </li>
+            <li>Generar todos los mensajes posibles u∈Fq^k.</li>
+            <li>Calcular el producto uG para cada mensaje.</li>
+            <li>Reducir cada coordenada de uG módulo q.</li>
+            <li>Guardar cada vector resultante como palabra código.</li>
+            <li>Eliminar duplicados, en caso de que existan.</li>
+            <li>Calcular el peso de Hamming de cada palabra.</li>
             <li>
               Calcular la distancia mínima comparando pares de palabras código.
             </li>
-            <li>
-              Calcular H como base del núcleo de G.
-            </li>
+            <li>Calcular H como base del núcleo de G.</li>
           </ol>
         </div>
 
@@ -463,7 +440,9 @@ export default function Page() {
 
           <Latex
             block
-            expr={`\\mathring{C}(${pp})=\\{(c_1,\\ldots,c_{${data.n - 1}}):c\\in C\\}`}
+            expr={`\\mathring{C}(${pp})=\\{(c_1,\\ldots,c_{${
+              data.n - 1
+            }}):c\\in C\\}`}
           />
 
           <CodeSet label="C_p" codewords={pun} />

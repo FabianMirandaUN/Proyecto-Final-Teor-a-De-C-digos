@@ -12,7 +12,12 @@ export default function Home() {
           CodeLab: Simulador Interactivo de Teoría de Códigos
         </h1>
         <p className="subtitle">
-          Plataforma web interactiva para la construcción y análisis de códigos Reed–Solomon, lineales y cíclicos, con generación automática de resultados y simulación dinámica de parámetros en tiempo real.
+          CodeLab es una plataforma web interactiva para construir, visualizar y
+          validar códigos Reed–Solomon, códigos lineales binarios y códigos
+          cíclicos. La aplicación integra teoría, algoritmos y simuladores
+          dinámicos que permiten modificar parámetros, generar palabras código y
+          verificar propiedades como <Latex expr={"HG^t=0"} />, la distancia
+          mínima y el cierre cíclico.
         </p>
         <Latex
           block

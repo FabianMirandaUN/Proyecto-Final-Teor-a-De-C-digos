@@ -1,6 +1,346 @@
 "use client";
-import {useMemo,useState} from 'react';import Nav from '@/components/Nav';import Footer from '@/components/Footer';import {Latex} from '@/components/Latex';import MatrixLatex from '@/components/MatrixLatex';
+import { useMemo, useState } from "react";
+import Nav from "@/components/Nav";
+import Footer from "@/components/Footer";
+import { Latex } from "@/components/Latex";
+import MatrixLatex from "@/components/MatrixLatex";
 
-const mod=(a:number,p:number)=>((a%p)+p)%p;function parseNums(s:string){return s.split(/[;,\s]+/).map(x=>parseInt(x.trim())).filter(x=>!Number.isNaN(x))}function vectors(q:number,k:number,limit=1500){const out:number[][]=[];for(let idx=0;idx<Math.min(q**k,limit);idx++){let v=idx;const row:number[]=[];for(let j=0;j<k;j++){row.unshift(v%q);v=Math.floor(v/q)}out.push(row)}return out}function wgt(v:number[]){return v.filter(x=>x!==0).length}function dist(a:number[],b:number[]){return a.reduce((s,x,i)=>s+(x!==b[i]?1:0),0)}function minD(code:number[][]){let m=Infinity;for(let i=0;i<Math.min(code.length,300);i++)for(let j=i+1;j<Math.min(code.length,300);j++)m=Math.min(m,dist(code[i],code[j]));return m===Infinity?0:m}function uniq(rows:number[][]){const seen=new Set<string>();const out:number[][]=[];for(const r of rows){const k=r.join(',');if(!seen.has(k)){seen.add(k);out.push(r)}}return out}function mv(v:number[],M:number[][],p:number){return Array.from({length:M[0]?.length||0},(_,j)=>mod(v.reduce((s,x,i)=>s+x*M[i][j],0),p))}function inv(a:number,p:number){a=mod(a,p);for(let x=1;x<p;x++)if(mod(a*x,p)===1)return x;return 0}function rref(A:number[][],p:number){const M=A.map(r=>[...r]);let lead=0,pivots:number[]=[];for(let r=0;r<M.length;r++){if(lead>=(M[0]?.length||0))break;let i=r;while(M[i][lead]===0){i++;if(i===M.length){i=r;lead++;if(lead===(M[0]?.length||0))return {M,pivots}}}if(i!==r)[M[i],M[r]]=[M[r],M[i]];const iv=inv(M[r][lead],p);if(iv)M[r]=M[r].map(x=>mod(x*iv,p));for(let i2=0;i2<M.length;i2++){const f=M[i2][lead];if(i2!==r&&f!==0)M[i2]=M[i2].map((x,j)=>mod(x-f*M[r][j],p))}pivots.push(lead);lead++}return {M,pivots}}function nullspace(A:number[][],p:number){if(!A.length)return [];const {M,pivots}=rref(A,p);const cols=A[0].length;const free:number[]=[];for(let j=0;j<cols;j++)if(!pivots.includes(j))free.push(j);return free.map(f=>{const v=Array(cols).fill(0);v[f]=1;pivots.forEach((pc,i)=>v[pc]=mod(-M[i][f],p));return v})}function matVec(M:number[][],v:number[],p:number){return M.map(r=>mod(r.reduce((s,x,i)=>s+x*(v[i]||0),0),p))}function puncture(code:number[][],pos:number){return uniq(code.map(c=>c.filter((_,i)=>i!==pos)))}function shorten(code:number[][],pos:number){return uniq(code.filter(c=>c[pos]===0).map(c=>c.filter((_,i)=>i!==pos)))}function permute(code:number[][],perm:number[]){return code.map(c=>perm.map(i=>c[i]??0))}function poly(c:number[]){const t:string[]=[];c.forEach((a,i)=>{if(a===0)return;if(i===0)t.push(`${a}`);else if(i===1)t.push(a===1?'x':`${a}x`);else t.push(a===1?`x^${i}`:`${a}x^${i}`)});return t.length?t.join(' + '):'0'}
+const mod = (a: number, p: number) => ((a % p) + p) % p;
+function parseNums(s: string) {
+  return s
+    .split(/[;,\s]+/)
+    .map((x) => parseInt(x.trim()))
+    .filter((x) => !Number.isNaN(x));
+}
+function vectors(q: number, k: number, limit = 1500) {
+  const out: number[][] = [];
+  for (let idx = 0; idx < Math.min(q ** k, limit); idx++) {
+    let v = idx;
+    const row: number[] = [];
+    for (let j = 0; j < k; j++) {
+      row.unshift(v % q);
+      v = Math.floor(v / q);
+    }
+    out.push(row);
+  }
+  return out;
+}
+function wgt(v: number[]) {
+  return v.filter((x) => x !== 0).length;
+}
+function dist(a: number[], b: number[]) {
+  return a.reduce((s, x, i) => s + (x !== b[i] ? 1 : 0), 0);
+}
+function minD(code: number[][]) {
+  let m = Infinity;
+  for (let i = 0; i < Math.min(code.length, 300); i++)
+    for (let j = i + 1; j < Math.min(code.length, 300); j++)
+      m = Math.min(m, dist(code[i], code[j]));
+  return m === Infinity ? 0 : m;
+}
+function uniq(rows: number[][]) {
+  const seen = new Set<string>();
+  const out: number[][] = [];
+  for (const r of rows) {
+    const k = r.join(",");
+    if (!seen.has(k)) {
+      seen.add(k);
+      out.push(r);
+    }
+  }
+  return out;
+}
+function mv(v: number[], M: number[][], p: number) {
+  return Array.from({ length: M[0]?.length || 0 }, (_, j) =>
+    mod(
+      v.reduce((s, x, i) => s + x * M[i][j], 0),
+      p
+    )
+  );
+}
+function inv(a: number, p: number) {
+  a = mod(a, p);
+  for (let x = 1; x < p; x++) if (mod(a * x, p) === 1) return x;
+  return 0;
+}
+function rref(A: number[][], p: number) {
+  const M = A.map((r) => [...r]);
+  let lead = 0,
+    pivots: number[] = [];
+  for (let r = 0; r < M.length; r++) {
+    if (lead >= (M[0]?.length || 0)) break;
+    let i = r;
+    while (M[i][lead] === 0) {
+      i++;
+      if (i === M.length) {
+        i = r;
+        lead++;
+        if (lead === (M[0]?.length || 0)) return { M, pivots };
+      }
+    }
+    if (i !== r) [M[i], M[r]] = [M[r], M[i]];
+    const iv = inv(M[r][lead], p);
+    if (iv) M[r] = M[r].map((x) => mod(x * iv, p));
+    for (let i2 = 0; i2 < M.length; i2++) {
+      const f = M[i2][lead];
+      if (i2 !== r && f !== 0)
+        M[i2] = M[i2].map((x, j) => mod(x - f * M[r][j], p));
+    }
+    pivots.push(lead);
+    lead++;
+  }
+  return { M, pivots };
+}
+function nullspace(A: number[][], p: number) {
+  if (!A.length) return [];
+  const { M, pivots } = rref(A, p);
+  const cols = A[0].length;
+  const free: number[] = [];
+  for (let j = 0; j < cols; j++) if (!pivots.includes(j)) free.push(j);
+  return free.map((f) => {
+    const v = Array(cols).fill(0);
+    v[f] = 1;
+    pivots.forEach((pc, i) => (v[pc] = mod(-M[i][f], p)));
+    return v;
+  });
+}
+function matVec(M: number[][], v: number[], p: number) {
+  return M.map((r) =>
+    mod(
+      r.reduce((s, x, i) => s + x * (v[i] || 0), 0),
+      p
+    )
+  );
+}
+function puncture(code: number[][], pos: number) {
+  return uniq(code.map((c) => c.filter((_, i) => i !== pos)));
+}
+function shorten(code: number[][], pos: number) {
+  return uniq(
+    code.filter((c) => c[pos] === 0).map((c) => c.filter((_, i) => i !== pos))
+  );
+}
+function permute(code: number[][], perm: number[]) {
+  return code.map((c) => perm.map((i) => c[i] ?? 0));
+}
+function poly(c: number[]) {
+  const t: string[] = [];
+  c.forEach((a, i) => {
+    if (a === 0) return;
+    if (i === 0) t.push(`${a}`);
+    else if (i === 1) t.push(a === 1 ? "x" : `${a}x`);
+    else t.push(a === 1 ? `x^${i}` : `${a}x^${i}`);
+  });
+  return t.length ? t.join(" + ") : "0";
+}
 
-function isPrime(n:number){if(n<2)return false;for(let i=2;i*i<=n;i++)if(n%i===0)return false;return true}function evalP(c:number[],x:number,p:number){let s=0,pw=1;for(const a of c){s=mod(s+a*pw,p);pw=mod(pw*x,p)}return s}function vand(k:number,A:number[],p:number){return Array.from({length:k},(_,i)=>A.map(a=>mod(a**i,p)))}export default function Page(){const[p,setP]=useState(5),[n,setN]=useState(5),[k,setK]=useState(3),[pts,setPts]=useState('0,1,2,3,4'),[y,setY]=useState('1,1,2,4,2'),[pp,setPp]=useState(5),[sp,setSp]=useState(5),[pm,setPm]=useState('2,1,3,4,5');const data=useMemo(()=>{const A=parseNums(pts).slice(0,n).map(x=>mod(x,p));const G=vand(k,A,p);const H=nullspace(G,p);const rows=vectors(p,k).map(u=>{const cw=A.map(a=>evalP(u,a,p));return{u,fx:poly(u),cw,peso:wgt(cw)}});const code=rows.map(r=>r.cw);return{A,G,H,rows,code,prime:isPrime(p),distinct:new Set(A).size===A.length,d:minD(code)}},[p,n,k,pts]);const yy=parseNums(y).slice(0,n).map(x=>mod(x,p));const syn=matVec(data.H,yy,p);const pun=puncture(data.code,pp-1);const red=shorten(data.code,sp-1);const perm=parseNums(pm).map(x=>x-1);const eq=perm.length===n?permute(data.code,perm):[];return <main className="container"><Nav/><section className="hero"><span className="badge">Códigos Reed–Solomon dinámicos</span><h1 className="title">Reed–Solomon controlado por el usuario</h1><p className="subtitle">Sección limitada a lo solicitado para Reed–Solomon: cuerpo finito, mensajes como polinomios, Vandermonde, H, algoritmo y validación; con operaciones adicionales de síndrome, perforación, reducción y equivalencia.</p></section><section className="section card"><h2>1. Parámetros</h2><div className="control-grid"><div><label>p</label><input type="number" value={p} onChange={e=>setP(+e.target.value||2)}/></div><div><label>n</label><input type="number" value={n} onChange={e=>setN(+e.target.value||1)}/></div><div><label>k</label><input type="number" value={k} onChange={e=>setK(+e.target.value||1)}/></div><div><label>A</label><input value={pts} onChange={e=>setPts(e.target.value)}/></div><div><label>y</label><input value={y} onChange={e=>setY(e.target.value)}/></div></div><span className={data.prime?'pill ok':'pill warn'}>{data.prime?'p primo':'p no primo'}</span><span className={data.distinct?'pill ok':'pill warn'}>{data.distinct?'A sin repetidos':'A con repetidos'}</span></section><section className="section two"><div className="card"><h2>2. Definición</h2><Latex block expr={`C(A)=\\{(f(a_1),\\ldots,f(a_${n})):f\\in\\mathbb F_${p}[x],\\ deg(f)<${k}\\}`}/><Latex block expr={`A=\\{${data.A.join(',')}\\}`}/></div><div className="card"><h2>3. Validación</h2><Latex block expr={`[n,k,d]\\approx[${n},${k},${data.d}]_${p},\\quad d_{RS}=n-k+1=${n-k+1}`}/></div></section><section className="section card"><h2>4. Matriz generadora Vandermonde</h2><MatrixLatex name="G" matrix={data.G}/><div className="algo-box"><ol><li>Tomar el cuerpo Fp.</li><li>Tomar los puntos A.</li><li>Construir G con potencias de A.</li><li>Codificar con uG y reducir módulo p.</li></ol></div></section><section className="section card"><h2>5. Matriz de control y síndrome</h2><MatrixLatex name="H" matrix={data.H}/><Latex block expr={`s=Hy^t=(${syn.join(',')})`}/></section><section className="section three"><div className="card"><h2>6. Perforación</h2><label>Coordenada</label><input type="number" value={pp} onChange={e=>setPp(+e.target.value||1)}/><span className="pill">{pun.length} palabras</span></div><div className="card"><h2>7. Reducción</h2><label>Coordenada</label><input type="number" value={sp} onChange={e=>setSp(+e.target.value||1)}/><span className="pill">{red.length} palabras</span></div><div className="card"><h2>8. Equivalente</h2><label>Permutación</label><input value={pm} onChange={e=>setPm(e.target.value)}/><span className="pill">{eq.length} palabras</span></div></section><section className="section card"><h2>9. Mensajes y productos uG</h2><div className="tablewrap"><table><thead><tr><th>#</th><th>u</th><th>f_u(x)</th><th>uG</th><th>Peso</th></tr></thead><tbody>{data.rows.slice(0,300).map((r,i)=><tr key={i}><td>{i+1}</td><td className="mono">({r.u.join(',')})</td><td className="mono">{r.fx}</td><td className="mono">({r.cw.join(',')})</td><td>{r.peso}</td></tr>)}</tbody></table></div></section><Footer/></main>}
+function isPrime(n: number) {
+  if (n < 2) return false;
+  for (let i = 2; i * i <= n; i++) if (n % i === 0) return false;
+  return true;
+}
+function evalP(c: number[], x: number, p: number) {
+  let s = 0,
+    pw = 1;
+  for (const a of c) {
+    s = mod(s + a * pw, p);
+    pw = mod(pw * x, p);
+  }
+  return s;
+}
+function vand(k: number, A: number[], p: number) {
+  return Array.from({ length: k }, (_, i) => A.map((a) => mod(a ** i, p)));
+}
+export default function Page() {
+  const [p, setP] = useState(5),
+    [n, setN] = useState(5),
+    [k, setK] = useState(3),
+    [pts, setPts] = useState("0,1,2,3,4"),
+    [y, setY] = useState("1,1,2,4,2"),
+    [pp, setPp] = useState(5),
+    [sp, setSp] = useState(5),
+    [pm, setPm] = useState("2,1,3,4,5");
+  const data = useMemo(() => {
+    const A = parseNums(pts)
+      .slice(0, n)
+      .map((x) => mod(x, p));
+    const G = vand(k, A, p);
+    const H = nullspace(G, p);
+    const rows = vectors(p, k).map((u) => {
+      const cw = A.map((a) => evalP(u, a, p));
+      return { u, fx: poly(u), cw, peso: wgt(cw) };
+    });
+    const code = rows.map((r) => r.cw);
+    return {
+      A,
+      G,
+      H,
+      rows,
+      code,
+      prime: isPrime(p),
+      distinct: new Set(A).size === A.length,
+      d: minD(code),
+    };
+  }, [p, n, k, pts]);
+  const yy = parseNums(y)
+    .slice(0, n)
+    .map((x) => mod(x, p));
+  const syn = matVec(data.H, yy, p);
+  const pun = puncture(data.code, pp - 1);
+  const red = shorten(data.code, sp - 1);
+  const perm = parseNums(pm).map((x) => x - 1);
+  const eq = perm.length === n ? permute(data.code, perm) : [];
+  return (
+    <main className="container">
+      <Nav />
+      <section className="hero">
+        <span className="badge">Códigos Reed–Solomon dinámicos</span>
+        <h1 className="title">Reed–Solomon controlado por el usuario</h1>
+        <p className="subtitle">
+          Esta sección dinámica permite construir códigos Reed–Solomon
+          modificando parámetros como el cuerpo finito{" "}
+          <Latex expr={"\\mathbb{F}_p"} />, la longitud <Latex expr={"n"} />, la
+          dimensión <Latex expr={"k"} /> y el conjunto de evaluación{" "}
+          <Latex expr={"A"} />. Con estos datos, el sistema genera
+          automáticamente la matriz de Vandermonde, las palabras código, la
+          matriz de control, el síndrome y la distancia mínima.
+        </p>
+      </section>
+      <section className="section card">
+        <h2>1. Parámetros</h2>
+        <div className="control-grid">
+          <div>
+            <label>p</label>
+            <input
+              type="number"
+              value={p}
+              onChange={(e) => setP(+e.target.value || 2)}
+            />
+          </div>
+          <div>
+            <label>n</label>
+            <input
+              type="number"
+              value={n}
+              onChange={(e) => setN(+e.target.value || 1)}
+            />
+          </div>
+          <div>
+            <label>k</label>
+            <input
+              type="number"
+              value={k}
+              onChange={(e) => setK(+e.target.value || 1)}
+            />
+          </div>
+          <div>
+            <label>A</label>
+            <input value={pts} onChange={(e) => setPts(e.target.value)} />
+          </div>
+          <div>
+            <label>y</label>
+            <input value={y} onChange={(e) => setY(e.target.value)} />
+          </div>
+        </div>
+        <span className={data.prime ? "pill ok" : "pill warn"}>
+          {data.prime ? "p primo" : "p no primo"}
+        </span>
+        <span className={data.distinct ? "pill ok" : "pill warn"}>
+          {data.distinct ? "A sin repetidos" : "A con repetidos"}
+        </span>
+      </section>
+      <section className="section two">
+        <div className="card">
+          <h2>2. Definición</h2>
+          <Latex
+            block
+            expr={`C(A)=\\{(f(a_1),\\ldots,f(a_${n})):f\\in\\mathbb F_${p}[x],\\ deg(f)<${k}\\}`}
+          />
+          <Latex block expr={`A=\\{${data.A.join(",")}\\}`} />
+        </div>
+        <div className="card">
+          <h2>3. Validación</h2>
+          <Latex
+            block
+            expr={`[n,k,d]\\approx[${n},${k},${
+              data.d
+            }]_${p},\\quad d_{RS}=n-k+1=${n - k + 1}`}
+          />
+        </div>
+      </section>
+      <section className="section card">
+        <h2>4. Matriz generadora Vandermonde</h2>
+        <MatrixLatex name="G" matrix={data.G} />
+        <div className="algo-box">
+          <ol>
+            <li>Tomar el cuerpo Fp.</li>
+            <li>Tomar los puntos A.</li>
+            <li>Construir G con potencias de A.</li>
+            <li>Codificar con uG y reducir módulo p.</li>
+          </ol>
+        </div>
+      </section>
+      <section className="section card">
+        <h2>5. Matriz de control y síndrome</h2>
+        <MatrixLatex name="H" matrix={data.H} />
+        <Latex block expr={`s=Hy^t=(${syn.join(",")})`} />
+      </section>
+      <section className="section three">
+        <div className="card">
+          <h2>6. Perforación</h2>
+          <label>Coordenada</label>
+          <input
+            type="number"
+            value={pp}
+            onChange={(e) => setPp(+e.target.value || 1)}
+          />
+          <span className="pill">{pun.length} palabras</span>
+        </div>
+        <div className="card">
+          <h2>7. Reducción</h2>
+          <label>Coordenada</label>
+          <input
+            type="number"
+            value={sp}
+            onChange={(e) => setSp(+e.target.value || 1)}
+          />
+          <span className="pill">{red.length} palabras</span>
+        </div>
+        <div className="card">
+          <h2>8. Equivalente</h2>
+          <label>Permutación</label>
+          <input value={pm} onChange={(e) => setPm(e.target.value)} />
+          <span className="pill">{eq.length} palabras</span>
+        </div>
+      </section>
+      <section className="section card">
+        <h2>9. Mensajes y productos uG</h2>
+        <div className="tablewrap">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>u</th>
+                <th>f_u(x)</th>
+                <th>uG</th>
+                <th>Peso</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.rows.slice(0, 300).map((r, i) => (
+                <tr key={i}>
+                  <td>{i + 1}</td>
+                  <td className="mono">({r.u.join(",")})</td>
+                  <td className="mono">{r.fx}</td>
+                  <td className="mono">({r.cw.join(",")})</td>
+                  <td>{r.peso}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+      <Footer />
+    </main>
+  );
+}

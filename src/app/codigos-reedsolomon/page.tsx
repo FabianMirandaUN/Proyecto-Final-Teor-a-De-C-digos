@@ -195,7 +195,7 @@ export default function Page() {
       <Nav />
       <section className="hero">
         <span className="badge">Códigos Reed–Solomon dinámicos</span>
-        <h1 className="title">Reed–Solomon controlado por el usuario</h1>
+        <h1 className="title">Simulador de códigos Reed–Solomon</h1>
         <p className="subtitle">
           Esta sección dinámica permite construir códigos Reed–Solomon
           modificando parámetros como el cuerpo finito{" "}

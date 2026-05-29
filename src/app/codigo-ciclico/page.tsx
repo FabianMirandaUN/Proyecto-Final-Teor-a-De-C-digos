@@ -77,7 +77,7 @@ export default function Page() {
       </section>
       <section className="section card">
         <h2>5. Parámetros y listado de codewords</h2>
-        <Latex block expr={"[n,k,d]=[7,4,3]"} />
+        <Latex block expr={"[n,k,d]=[7,4,3]_2"} />
         <CodeSet label="C" codewords={CYCLIC.codewords} />
         <CyclicTable rows={CYCLIC.rows} />
       </section>

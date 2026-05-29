@@ -154,6 +154,7 @@ export default function Page() {
         <div className="card">
           <h2>Parámetros iniciales</h2>
           <Latex block expr={"n=7,\\quad k=4,\\quad |C|=2^4=16"} />
+          
 
           <p className="text">
             Como el código es lineal, todos los codewords se obtienen
@@ -207,6 +208,7 @@ export default function Page() {
         />
 
         <CodeSet label="C" codewords={LINEAR.codewords} />
+        <Latex block expr={"[n,k,d]=[7,4,3]_2"} />
       </section>
 
       <section className="section card">

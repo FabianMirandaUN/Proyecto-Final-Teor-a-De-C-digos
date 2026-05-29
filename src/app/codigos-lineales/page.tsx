@@ -272,6 +272,21 @@ function describeAffectedColumns(indices: number[]) {
     .join("; ");
 }
 
+function dot(a: number[], b: number[], q: number) {
+  return mod(
+    a.reduce((s, x, i) => s + x * (b[i] ?? 0), 0),
+    q
+  );
+}
+
+function gramMatrix(G: number[][], q: number) {
+  return G.map((r1) => G.map((r2) => dot(r1, r2, q)));
+}
+
+function isZeroMatrix(M: number[][]) {
+  return M.every((row) => row.every((x) => x === 0));
+}
+
 export default function Page() {
   const [q, setQ] = useState(2);
 
@@ -285,7 +300,6 @@ export default function Page() {
   const [perm, setPerm] = useState("2,1,3,4,5,6,7");
 
   const safeQ = Math.max(q, 2);
-  const rawG = parseMatrixRows(g);
   const rawY = parseNums(y);
 
   const data = useMemo(() => {
@@ -308,13 +322,15 @@ export default function Page() {
 
     const code = rectangular ? uniq(rows.map((r) => r.cw)) : [];
     const H = rectangular ? nullspace(G, safeQ) : [];
+    const gram = rectangular ? gramMatrix(G, safeQ) : [];
+    const selfOrthogonal = rectangular ? isZeroMatrix(gram) : false;
 
     return {
       G,
       rows,
       code,
       H,
-      d: completeGeneration ? minD(code) : minD(code),
+      d: minD(code),
       n,
       k,
       rank,
@@ -323,6 +339,8 @@ export default function Page() {
       rectangular,
       isField: isPrime(safeQ),
       reduced,
+      gram,
+      selfOrthogonal,
     };
   }, [g, safeQ]);
 
@@ -349,6 +367,9 @@ export default function Page() {
   const validReduction = sp >= 1 && sp <= data.n;
   const validPermutation = parsedPerm.valid;
 
+  const autoDualNecessary = validField && validMatrix && data.n === 2 * data.rank;
+  const autoDual = validField && validMatrix && autoDualNecessary && data.selfOrthogonal;
+
   const isLinearCodeStandard = validField && validMatrix;
 
   const validationMessages = [
@@ -360,6 +381,12 @@ export default function Page() {
       : null,
     validMatrix && !validRank
       ? `Advertencia: las filas de G pueden ser dependientes. El número de filas es k=${data.k}, pero el rango estimado es ${data.rank}. La dimensión real del código puede ser menor que k.`
+      : null,
+    validMatrix && !autoDualNecessary
+      ? `Auto-dualidad: no se cumple la condición necesaria n=2dim(C). Actualmente n=${data.n} y dim(C)=${data.rank}, por lo que 2dim(C)=${2 * data.rank}.`
+      : null,
+    validMatrix && autoDualNecessary && !data.selfOrthogonal
+      ? "Auto-dualidad: aunque se cumple n=2dim(C), no se verifica que las filas generadoras sean ortogonales entre sí."
       : null,
     !validYLength
       ? `Se recomienda corregir y: la palabra recibida debe tener longitud n=${data.n}. Actualmente tiene ${rawY.length} coordenadas; la aplicación completa o recorta para calcular el síndrome.`
@@ -499,6 +526,10 @@ export default function Page() {
                 : "Revisar rango: puede haber dependencia"}
             </span>
 
+            <span className={autoDual ? "pill ok" : "pill warn"}>
+              {autoDual ? "Código auto-dual" : "Código no auto-dual"}
+            </span>
+
             <span className={validYLength ? "pill ok" : "pill warn"}>
               {validYLength
                 ? "y tiene longitud n"
@@ -606,7 +637,51 @@ export default function Page() {
         </div>
 
         <div className="card">
-          <h2>4. Matriz de control y síndrome</h2>
+          <h2>4. Auto-dualidad</h2>
+
+          <Latex block expr={"C=C^\\perp"} />
+
+          <Latex
+            block
+            expr={`n=${data.n},\\quad \\dim(C)=${data.rank},\\quad 2\\dim(C)=${2 * data.rank}`}
+          />
+
+          <Latex block expr={"C\\text{ auto-dual }\\Rightarrow n=2\\dim(C)"} />
+
+          <MatrixLatex name="GG^t" matrix={data.gram} />
+
+          <span className={autoDualNecessary ? "pill ok" : "pill warn"}>
+            {autoDualNecessary
+              ? "Se cumple n = 2dim(C)"
+              : "No se cumple n = 2dim(C)"}
+          </span>
+
+          <span className={data.selfOrthogonal ? "pill ok" : "pill warn"}>
+            {data.selfOrthogonal
+              ? "Las filas son ortogonales"
+              : "Las filas no son ortogonales"}
+          </span>
+
+          <span className={autoDual ? "pill ok" : "pill warn"}>
+            {autoDual
+              ? "Conclusión: el código es auto-dual"
+              : "Conclusión: el código no es auto-dual"}
+          </span>
+
+          <p className="text">
+            Para que un código lineal sea auto-dual debe coincidir con su código
+            dual. Una condición necesaria es que la longitud sea el doble de la
+            dimensión. Además, las filas generadoras deben ser ortogonales entre
+            sí. Por eso se revisa la condición{" "}
+            <Latex expr={"n=2\\dim(C)"} /> y el producto{" "}
+            <Latex expr={"GG^t"} />.
+          </p>
+        </div>
+      </section>
+
+      <section className="section two">
+        <div className="card">
+          <h2>5. Matriz de control y síndrome</h2>
 
           <MatrixLatex name="H" matrix={data.H} />
 
@@ -631,47 +706,48 @@ export default function Page() {
 
           <Latex block expr={`y\\in C\\Longleftrightarrow Hy^t=0`} />
         </div>
-      </section>
 
-      <section className="section card">
-        <h2>5. Algoritmo de generación del código</h2>
+        <div className="card">
+          <h2>6. Algoritmo de generación del código</h2>
 
-        <div className="algo-box">
-          <ol>
-            <li>
-              Seleccionar <Latex expr={"q"} /> para trabajar sobre{" "}
-              <Latex expr={"\\mathbb{F}_q"} />.
-            </li>
-            <li>
-              Leer la matriz generadora <Latex expr={"G"} /> escrita por el
-              usuario.
-            </li>
-            <li>
-              Verificar que <Latex expr={"G"} /> sea rectangular y tenga entradas
-              válidas módulo <Latex expr={"q"} />.
-            </li>
-            <li>
-              Generar los mensajes <Latex expr={"u\\in\\mathbb{F}_q^k"} />.
-            </li>
-            <li>
-              Calcular <Latex expr={"uG"} /> para cada mensaje.
-            </li>
-            <li>
-              Eliminar duplicados si las filas de <Latex expr={"G"} /> son
-              dependientes.
-            </li>
-            <li>
-              Calcular pesos, distancia mínima y matriz de control.
-            </li>
-          </ol>
+          <div className="algo-box">
+            <ol>
+              <li>
+                Seleccionar <Latex expr={"q"} /> para trabajar sobre{" "}
+                <Latex expr={"\\mathbb{F}_q"} />.
+              </li>
+              <li>
+                Leer la matriz generadora <Latex expr={"G"} /> escrita por el
+                usuario.
+              </li>
+              <li>
+                Verificar que <Latex expr={"G"} /> sea rectangular y tenga
+                entradas válidas módulo <Latex expr={"q"} />.
+              </li>
+              <li>
+                Generar los mensajes <Latex expr={"u\\in\\mathbb{F}_q^k"} />.
+              </li>
+              <li>
+                Calcular <Latex expr={"uG"} /> para cada mensaje.
+              </li>
+              <li>
+                Eliminar duplicados si las filas de <Latex expr={"G"} /> son
+                dependientes.
+              </li>
+              <li>
+                Calcular pesos, distancia mínima, matriz de control y
+                auto-dualidad.
+              </li>
+            </ol>
+          </div>
+
+          <CodeSet label="C" codewords={data.code} />
         </div>
-
-        <CodeSet label="C" codewords={data.code} />
       </section>
 
       <section className="section three">
         <div className="card">
-          <h2>6. Perforación</h2>
+          <h2>7. Perforación</h2>
 
           <p className="text">
             La perforación elimina una coordenada fija de todas las palabras del
@@ -693,11 +769,14 @@ export default function Page() {
             expr={`\\mathring{C}(${puncturePosition})=\\{\\text{palabras de }C\\text{ sin la coordenada }${puncturePosition}\\}`}
           />
 
-          <CodeSet label={`\\mathring{C}(${puncturePosition})`} codewords={pun} />
+          <CodeSet
+            label={`\\mathring{C}(${puncturePosition})`}
+            codewords={pun}
+          />
         </div>
 
         <div className="card">
-          <h2>7. Reducción</h2>
+          <h2>8. Reducción</h2>
 
           <p className="text">
             La reducción conserva solamente las palabras cuya coordenada
@@ -719,11 +798,14 @@ export default function Page() {
             expr={`\\breve{C}(${reductionPosition})=\\{c\\in C:c_{${reductionPosition}}=0\\text{, eliminando esa coordenada}\\}`}
           />
 
-          <CodeSet label={`\\breve{C}(${reductionPosition})`} codewords={red} />
+          <CodeSet
+            label={`\\breve{C}(${reductionPosition})`}
+            codewords={red}
+          />
         </div>
 
         <div className="card">
-          <h2>8. Código equivalente</h2>
+          <h2>9. Código equivalente</h2>
 
           <p className="text">
             Un código equivalente se obtiene aplicando una permutación de
@@ -734,16 +816,16 @@ export default function Page() {
 
           <input value={perm} onChange={(e) => setPerm(e.target.value)} />
 
-          <Latex block expr={`C_{eq}=\\pi(C)`} />
+          <Latex block expr={`C_{\\mathrm{eq}}=\\pi(C)`} />
 
           <p className="mini">{describeAffectedColumns(parsedPerm.indices)}.</p>
 
-          <CodeSet label="C_{eq}" codewords={eq} />
+          <CodeSet label="C_{\\mathrm{eq}}" codewords={eq} />
         </div>
       </section>
 
       <section className="section card">
-        <h2>9. Tabla de mensajes y productos uG</h2>
+        <h2>10. Tabla de mensajes y productos uG</h2>
 
         <p className="text">
           Esta tabla muestra la correspondencia entre cada mensaje{" "}

@@ -248,9 +248,14 @@ function polyDivMod(dividendInput: number[], divisorInput: number[]) {
     };
   }
 
-  let quotient = Array(Math.max(1, dividend.length - divisor.length + 1)).fill(0);
+  let quotient = Array(Math.max(1, dividend.length - divisor.length + 1)).fill(
+    0
+  );
 
-  while (degree(dividend) >= dDivisor && !(dividend.length === 1 && dividend[0] === 0)) {
+  while (
+    degree(dividend) >= dDivisor &&
+    !(dividend.length === 1 && dividend[0] === 0)
+  ) {
     const shift = degree(dividend) - dDivisor;
     quotient[shift] = 1;
 
@@ -449,7 +454,7 @@ export default function Page() {
 
       <section className="section two">
         <div className="card">
-          <h2>1. Parámetros</h2>
+          <h2>1. Parámetros y elección del polinomio generador</h2>
 
           <label>Longitud n</label>
 
@@ -499,11 +504,8 @@ export default function Page() {
               </li>
 
               <li>
-                <strong>
-                  Coeficientes:
-                </strong>{" "}
-                se escriben de menor a mayor grado. Por ejemplo,{" "}
-                <Latex expr={"1,1,0,1"} /> representa{" "}
+                <strong>Coeficientes:</strong> se escriben de menor a mayor
+                grado. Por ejemplo, <Latex expr={"1,1,0,1"} /> representa{" "}
                 <Latex expr={"1+x+x^3"} />.
               </li>
             </ul>
@@ -551,11 +553,14 @@ export default function Page() {
         </div>
 
         <div className="card">
-          <h2>2. Definición</h2>
+          <h2>2. Construcción del código cíclico</h2>
 
           <Latex block expr={"c(x)=m(x)g(x)\\pmod{x^n-1}"} />
 
-          <Latex block expr={`C=\\langle g(x)\\rangle\\subseteq \\mathbb{F}_2[x]/(x^{${safeN}}-1)`} />
+          <Latex
+            block
+            expr={`C=\\langle g(x)\\rangle\\subseteq \\mathbb{F}_2[x]/(x^{${safeN}}-1)`}
+          />
 
           <p className="text">
             Un código binario cíclico de longitud <Latex expr={"n"} /> se
@@ -564,11 +569,46 @@ export default function Page() {
             cíclico estándar, el polinomio generador debe dividir a{" "}
             <Latex expr={"x^n-1"} />.
           </p>
+
+          <div className="algo-box">
+            <h3>Algoritmo de construcción</h3>
+
+            <ol>
+              <li>
+                Leer la longitud <Latex expr={"n"} /> y el polinomio generador{" "}
+                <Latex expr={"g(x)"} />.
+              </li>
+              <li>
+                Verificar que <Latex expr={"\\deg(g)<n"} />.
+              </li>
+              <li>
+                Verificar si <Latex expr={"g(x)"} /> divide a{" "}
+                <Latex expr={"x^n-1"} />.
+              </li>
+              <li>
+                Calcular la dimensión usando{" "}
+                <Latex expr={"k=n-\\deg(g)"} />.
+              </li>
+              <li>
+                Construir la matriz generadora desplazando los coeficientes de{" "}
+                <Latex expr={"g(x)"} />.
+              </li>
+              <li>
+                Generar todos los mensajes{" "}
+                <Latex expr={"u\\in\\mathbb{F}_2^k"} /> y calcular{" "}
+                <Latex expr={"uG"} />.
+              </li>
+              <li>
+                Calcular la matriz de control <Latex expr={"H"} />, los pesos,
+                la distancia mínima y el cierre cíclico.
+              </li>
+            </ol>
+          </div>
         </div>
       </section>
 
       <section className="section card">
-        <h2>3. Matrices y síndrome</h2>
+        <h2>3. Matriz generadora, matriz de control y síndrome</h2>
 
         <MatrixLatex name="G" matrix={data.G} />
         <MatrixLatex name="H" matrix={data.H} />
@@ -594,12 +634,18 @@ export default function Page() {
       </section>
 
       <section className="section card">
-        <h2>4. Código generado</h2>
+        <h2>4. Parámetros y codewords del código generado</h2>
 
         <Latex
           block
           expr={`[n,k,d]\\approx[${safeN},${data.k},${data.d}]_2`}
         />
+
+        <p className="text">
+          La longitud es <Latex expr={`n=${safeN}`} />, la dimensión calculada
+          es <Latex expr={`k=${data.k}`} /> y la distancia mínima estimada es{" "}
+          <Latex expr={`d=${data.d}`} />.
+        </p>
 
         <CodeSet label="C" codewords={data.code} />
       </section>
@@ -668,12 +714,12 @@ export default function Page() {
       </section>
 
       <section className="section card">
-        <h2>7. Tabla de mensajes</h2>
+        <h2>7. Listado de mensajes y codewords</h2>
 
         <p className="text">
           La tabla muestra cada mensaje <Latex expr={"u"} />, el polinomio{" "}
-          <Latex expr={"m(x)"} /> asociado, la palabra código obtenida y su peso
-          de Hamming.
+          <Latex expr={"m(x)"} /> asociado, la palabra código obtenida mediante{" "}
+          <Latex expr={"uG"} /> y su peso de Hamming.
         </p>
 
         {!data.completeGeneration && (

@@ -7,6 +7,8 @@ import { Latex } from "@/components/Latex";
 import MatrixLatex from "@/components/MatrixLatex";
 import { CodeSet } from "@/components/Tables";
 
+const MAX_MESSAGES = 5000;
+
 const mod = (a: number, p: number) => ((a % p) + p) % p;
 
 function isPrime(n: number) {
@@ -26,10 +28,12 @@ function parseNums(s: string) {
     .filter((x) => !Number.isNaN(x));
 }
 
-function vectors(q: number, k: number, limit = 1500) {
+function vectors(q: number, k: number, limit = MAX_MESSAGES) {
   const out: number[][] = [];
+  const total = q ** k;
+  const max = Math.min(total, limit);
 
-  for (let idx = 0; idx < Math.min(q ** k, limit); idx++) {
+  for (let idx = 0; idx < max; idx++) {
     let v = idx;
     const row: number[] = [];
 
@@ -55,8 +59,8 @@ function dist(a: number[], b: number[]) {
 function minD(code: number[][]) {
   let m = Infinity;
 
-  for (let i = 0; i < Math.min(code.length, 300); i++) {
-    for (let j = i + 1; j < Math.min(code.length, 300); j++) {
+  for (let i = 0; i < code.length; i++) {
+    for (let j = i + 1; j < code.length; j++) {
       m = Math.min(m, dist(code[i], code[j]));
     }
   }
@@ -69,10 +73,10 @@ function uniq(rows: number[][]) {
   const out: number[][] = [];
 
   for (const r of rows) {
-    const k = r.join(",");
+    const key = r.join(",");
 
-    if (!seen.has(k)) {
-      seen.add(k);
+    if (!seen.has(key)) {
+      seen.add(key);
       out.push(r);
     }
   }
@@ -83,7 +87,7 @@ function uniq(rows: number[][]) {
 function mv(v: number[], M: number[][], q: number) {
   return Array.from({ length: M[0]?.length || 0 }, (_, j) =>
     mod(
-      v.reduce((s, x, i) => s + x * M[i][j], 0),
+      v.reduce((s, x, i) => s + x * (M[i]?.[j] ?? 0), 0),
       q
     )
   );
@@ -109,7 +113,7 @@ function rref(A: number[][], q: number) {
 
     let i = r;
 
-    while (M[i][lead] === 0) {
+    while (M[i]?.[lead] === 0) {
       i++;
 
       if (i === M.length) {
@@ -193,12 +197,79 @@ function permute(code: number[][], perm: number[]) {
   return code.map((c) => perm.map((i) => c[i] ?? 0));
 }
 
-function parseMatrix(s: string, q: number) {
+function parseMatrixRows(s: string) {
   return s
     .trim()
     .split("\n")
-    .map((r) => parseNums(r).map((x) => mod(x, q)))
+    .map((r) => parseNums(r))
     .filter((r) => r.length);
+}
+
+function parseMatrix(s: string, q: number) {
+  return parseMatrixRows(s).map((r) => r.map((x) => mod(x, q)));
+}
+
+function isRectangular(M: number[][]) {
+  if (!M.length) return false;
+  const n = M[0].length;
+  return n > 0 && M.every((row) => row.length === n);
+}
+
+function normalizeWord(text: string, n: number, q: number) {
+  const parsed = parseNums(text).map((x) => mod(x, q));
+  const word = [...parsed];
+
+  while (word.length < n) {
+    word.push(0);
+  }
+
+  return word.slice(0, n);
+}
+
+function clampPosition(pos: number, n: number) {
+  if (Number.isNaN(pos)) return 1;
+  return Math.min(Math.max(pos, 1), Math.max(n, 1));
+}
+
+function parsePermutation(text: string, n: number) {
+  const values = parseNums(text);
+
+  const valid =
+    values.length === n &&
+    new Set(values).size === n &&
+    values.every((x) => x >= 1 && x <= n);
+
+  if (!valid) {
+    return {
+      valid: false,
+      indices: Array.from({ length: n }, (_, i) => i),
+    };
+  }
+
+  return {
+    valid: true,
+    indices: values.map((x) => x - 1),
+  };
+}
+
+function describeAffectedColumns(indices: number[]) {
+  const affected = indices
+    .map((value, position) => ({
+      newPosition: position + 1,
+      oldPosition: value + 1,
+    }))
+    .filter((item) => item.newPosition !== item.oldPosition);
+
+  if (affected.length === 0) {
+    return "La permutación no modifica el orden de las columnas.";
+  }
+
+  return affected
+    .map(
+      (item) =>
+        `La nueva columna ${item.newPosition} toma la columna original ${item.oldPosition}`
+    )
+    .join("; ");
 }
 
 export default function Page() {
@@ -213,41 +284,99 @@ export default function Page() {
   const [sp, setSp] = useState(7);
   const [perm, setPerm] = useState("2,1,3,4,5,6,7");
 
+  const safeQ = Math.max(q, 2);
+  const rawG = parseMatrixRows(g);
+  const rawY = parseNums(y);
+
   const data = useMemo(() => {
-    const G = parseMatrix(g, q);
+    const G = parseMatrix(g, safeQ);
+    const rectangular = isRectangular(G);
+    const n = rectangular ? G[0].length : 0;
+    const k = G.length;
+    const totalMessages = rectangular ? safeQ ** k : 0;
+    const completeGeneration = totalMessages <= MAX_MESSAGES;
 
-    const rows = vectors(q, G.length).map((u) => {
-      const cw = mv(u, G, q);
-      return { u, cw, peso: wgt(cw) };
-    });
+    const reduced = rectangular ? rref(G, safeQ) : { M: [], pivots: [] };
+    const rank = rectangular && isPrime(safeQ) ? reduced.pivots.length : 0;
 
-    const code = uniq(rows.map((r) => r.cw));
-    const H = nullspace(G, q);
+    const rows = rectangular
+      ? vectors(safeQ, k).map((u) => {
+          const cw = mv(u, G, safeQ);
+          return { u, cw, peso: wgt(cw) };
+        })
+      : [];
+
+    const code = rectangular ? uniq(rows.map((r) => r.cw)) : [];
+    const H = rectangular ? nullspace(G, safeQ) : [];
 
     return {
       G,
       rows,
       code,
       H,
-      d: minD(code),
-      n: G[0]?.length || 0,
-      k: G.length,
-      isField: isPrime(q),
+      d: completeGeneration ? minD(code) : minD(code),
+      n,
+      k,
+      rank,
+      totalMessages,
+      completeGeneration,
+      rectangular,
+      isField: isPrime(safeQ),
+      reduced,
     };
-  }, [g, q]);
+  }, [g, safeQ]);
 
-  const yy = parseNums(y)
-    .slice(0, data.n)
-    .map((x) => mod(x, q));
+  const yy = normalizeWord(y, data.n, safeQ);
+  const syn = matVec(data.H, yy, safeQ);
 
-  const syn = matVec(data.H, yy, q);
+  const puncturePosition = clampPosition(pp, data.n);
+  const reductionPosition = clampPosition(sp, data.n);
 
-  const pun = puncture(data.code, pp - 1);
-  const red = shorten(data.code, sp - 1);
+  const pun = data.rectangular ? puncture(data.code, puncturePosition - 1) : [];
+  const red = data.rectangular ? shorten(data.code, reductionPosition - 1) : [];
 
-  const prm = parseNums(perm).map((x) => x - 1);
+  const parsedPerm = parsePermutation(perm, data.n);
+  const eq =
+    data.rectangular && parsedPerm.valid
+      ? permute(data.code, parsedPerm.indices)
+      : [];
 
-  const eq = prm.length === data.n ? permute(data.code, prm) : [];
+  const validMatrix = data.rectangular && data.n > 0 && data.k > 0;
+  const validField = data.isField;
+  const validRank = validField && data.rank === data.k;
+  const validYLength = rawY.length === data.n;
+  const validPuncture = pp >= 1 && pp <= data.n;
+  const validReduction = sp >= 1 && sp <= data.n;
+  const validPermutation = parsedPerm.valid;
+
+  const isLinearCodeStandard = validField && validMatrix;
+
+  const validationMessages = [
+    !validField
+      ? `Se recomienda corregir q: el valor ${safeQ} no es primo. Para trabajar formalmente sobre un cuerpo finito, q debe ser primo.`
+      : null,
+    !validMatrix
+      ? "Se recomienda corregir G: la matriz generadora debe ser rectangular, no vacía y con todas las filas de la misma longitud."
+      : null,
+    validMatrix && !validRank
+      ? `Advertencia: las filas de G pueden ser dependientes. El número de filas es k=${data.k}, pero el rango estimado es ${data.rank}. La dimensión real del código puede ser menor que k.`
+      : null,
+    !validYLength
+      ? `Se recomienda corregir y: la palabra recibida debe tener longitud n=${data.n}. Actualmente tiene ${rawY.length} coordenadas; la aplicación completa o recorta para calcular el síndrome.`
+      : null,
+    !validPuncture
+      ? `Se recomienda corregir la coordenada de perforación: debe estar entre 1 y ${data.n}.`
+      : null,
+    !validReduction
+      ? `Se recomienda corregir la coordenada de reducción: debe estar entre 1 y ${data.n}.`
+      : null,
+    !validPermutation
+      ? `Se recomienda corregir la permutación: debe contener exactamente los números del 1 al ${data.n}, sin repetir.`
+      : null,
+    !data.completeGeneration
+      ? `Advertencia: el espacio de mensajes tiene ${data.totalMessages} elementos. Para mantener la página estable, se generan los primeros ${MAX_MESSAGES}.`
+      : null,
+  ].filter(Boolean);
 
   return (
     <main className="container">
@@ -275,6 +404,7 @@ export default function Page() {
           <h2>1. Espacio finito de trabajo</h2>
 
           <label>Valor de q para trabajar sobre Fq</label>
+
           <input
             type="number"
             value={q}
@@ -282,39 +412,128 @@ export default function Page() {
           />
 
           <p className="text">
-            El parámetro q define el conjunto de escalares usado en el código.
-            Cuando q es primo, se trabaja formalmente sobre el cuerpo finito Fq.
-            Si q no es primo, la interfaz realiza operaciones módulo q, pero
-            algunos elementos podrían no tener inverso multiplicativo.
+            El parámetro <Latex expr={"q"} /> define el conjunto de escalares
+            usado en el código. Cuando <Latex expr={"q"} /> es primo, se trabaja
+            formalmente sobre el cuerpo finito{" "}
+            <Latex expr={"\\mathbb{F}_q"} />. Si <Latex expr={"q"} /> no es
+            primo, la interfaz realiza operaciones módulo <Latex expr={"q"} />,
+            pero algunos elementos podrían no tener inverso multiplicativo.
           </p>
 
-          <span className={data.isField ? "pill ok" : "pill warn"}>
-            {data.isField
-              ? `F${q} es un cuerpo finito primo`
-              : `Z${q} no es un cuerpo finito primo`}
+          <span className={validField ? "pill ok" : "pill warn"}>
+            {validField
+              ? `F${safeQ} es un cuerpo finito primo`
+              : `Z${safeQ} no es un cuerpo finito primo`}
           </span>
 
-          <Latex block expr={`K=\\mathbb{F}_{${q}}`} />
+          <span className={isLinearCodeStandard ? "pill ok" : "pill warn"}>
+            {isLinearCodeStandard
+              ? "Sí es un código lineal sobre cuerpo finito"
+              : "No es un código lineal estándar sobre cuerpo finito"}
+          </span>
+
+          <Latex block expr={`K=\\mathbb{F}_{${safeQ}}`} />
 
           <div className="algo-box">
-            <h3>Representación explícita del espacio</h3>
+            <h3>¿Qué significa cada parámetro?</h3>
 
-            <Latex
-              block
-              expr={`\\mathbb{F}_{${q}}=\\{0,1,\\ldots,${q - 1}\\}`}
-            />
+            <ul>
+              <li>
+                <strong>
+                  <Latex expr={"q"} />:
+                </strong>{" "}
+                tamaño del cuerpo finito <Latex expr={"\\mathbb{F}_q"} />.
+                Para que sea un cuerpo primo, <Latex expr={"q"} /> debe ser
+                primo.
+              </li>
 
-            <Latex
-              block
-              expr={`\\mathbb{F}_{${q}}^{${data.n}}=\\{(x_1,x_2,\\ldots,x_{${data.n}}):x_i\\in\\mathbb{F}_{${q}}\\}`}
-            />
+              <li>
+                <strong>
+                  <Latex expr={"G"} />:
+                </strong>{" "}
+                matriz generadora. Sus filas generan el código lineal.
+              </li>
 
-            <p className="text">
-              El código generado por la matriz G vive dentro del espacio
-              vectorial Fq^n. Esto significa que cada palabra código tiene n
-              coordenadas y cada una de esas coordenadas pertenece al conjunto
-              Fq.
-            </p>
+              <li>
+                <strong>
+                  <Latex expr={"k"} />:
+                </strong>{" "}
+                número de filas de <Latex expr={"G"} />. Representa la cantidad
+                de coordenadas del mensaje antes de considerar dependencias.
+              </li>
+
+              <li>
+                <strong>
+                  <Latex expr={"n"} />:
+                </strong>{" "}
+                número de columnas de <Latex expr={"G"} />. Representa la
+                longitud de cada palabra código.
+              </li>
+
+              <li>
+                <strong>
+                  <Latex expr={"y"} />:
+                </strong>{" "}
+                palabra recibida. Se usa para calcular el síndrome{" "}
+                <Latex expr={"s=Hy^t"} />.
+              </li>
+            </ul>
+          </div>
+
+          <div className="algo-box">
+            <h3>Validaciones y recomendaciones</h3>
+
+            <span className={validField ? "pill ok" : "pill warn"}>
+              {validField ? "q primo" : "Corregir q: no es primo"}
+            </span>
+
+            <span className={validMatrix ? "pill ok" : "pill warn"}>
+              {validMatrix
+                ? "Matriz G rectangular"
+                : "Corregir G: matriz no rectangular"}
+            </span>
+
+            <span className={validRank ? "pill ok" : "pill warn"}>
+              {validRank
+                ? "Filas independientes"
+                : "Revisar rango: puede haber dependencia"}
+            </span>
+
+            <span className={validYLength ? "pill ok" : "pill warn"}>
+              {validYLength
+                ? "y tiene longitud n"
+                : "Revisar y: longitud distinta de n"}
+            </span>
+
+            <span className={validPuncture ? "pill ok" : "pill warn"}>
+              {validPuncture
+                ? "Perforación válida"
+                : "Revisar coordenada de perforación"}
+            </span>
+
+            <span className={validReduction ? "pill ok" : "pill warn"}>
+              {validReduction
+                ? "Reducción válida"
+                : "Revisar coordenada de reducción"}
+            </span>
+
+            <span className={validPermutation ? "pill ok" : "pill warn"}>
+              {validPermutation
+                ? "Permutación válida"
+                : "Revisar permutación"}
+            </span>
+
+            <span className="pill">
+              Mensajes generados: {data.rows.length} de {data.totalMessages}
+            </span>
+
+            {validationMessages.length > 0 && (
+              <ul>
+                {validationMessages.map((message, index) => (
+                  <li key={index}>{message}</li>
+                ))}
+              </ul>
+            )}
           </div>
         </div>
 
@@ -322,15 +541,38 @@ export default function Page() {
           <h2>2. Matriz generadora editable</h2>
 
           <label>Matriz G por filas</label>
+
           <textarea rows={6} value={g} onChange={(e) => setG(e.target.value)} />
 
           <p className="text">
-            Cada fila de G representa un vector generador. Si G tiene k filas y
-            n columnas, entonces G genera un código lineal de dimensión a lo
-            sumo k y longitud n.
+            Cada fila de <Latex expr={"G"} /> representa un vector generador. Si{" "}
+            <Latex expr={"G"} /> tiene <Latex expr={"k"} /> filas y{" "}
+            <Latex expr={"n"} /> columnas, entonces genera un código de longitud{" "}
+            <Latex expr={"n"} /> y dimensión a lo sumo <Latex expr={"k"} />.
           </p>
 
-          <MatrixLatex name="G" matrix={data.G} />
+          {validMatrix ? (
+            <MatrixLatex name="G" matrix={data.G} />
+          ) : (
+            <span className="pill warn">
+              La matriz no puede mostrarse correctamente porque no es
+              rectangular.
+            </span>
+          )}
+
+          {validMatrix && (
+            <>
+              <Latex
+                block
+                expr={`G\\in\\mathbb{F}_{${safeQ}}^{${data.k}\\times ${data.n}}`}
+              />
+
+              <Latex
+                block
+                expr={`\\operatorname{rank}(G)\\approx ${data.rank}`}
+              />
+            </>
+          )}
         </div>
       </section>
 
@@ -340,31 +582,26 @@ export default function Page() {
 
           <Latex
             block
-            expr={`[n,k,d]\\approx[${data.n},${data.k},${data.d}]_{${q}}`}
+            expr={`[n,k,d]\\approx[${data.n},${data.rank || data.k},${data.d}]_{${safeQ}}`}
           />
 
           <Latex
             block
-            expr={`C=\\{uG:u\\in\\mathbb{F}_{${q}}^{${data.k}}\\}`}
+            expr={`C=\\{uG:u\\in\\mathbb{F}_{${safeQ}}^{${data.k}}\\}`}
           />
 
-          <Latex block expr={`C\\subseteq\\mathbb{F}_{${q}}^{${data.n}}`} />
+          <Latex block expr={`C\\subseteq\\mathbb{F}_{${safeQ}}^{${data.n}}`} />
 
           <Latex
             block
-            expr={`T:\\mathbb{F}_{${q}}^{${data.k}}\\longrightarrow\\mathbb{F}_{${q}}^{${data.n}},\\quad T(u)=uG`}
+            expr={`T:\\mathbb{F}_{${safeQ}}^{${data.k}}\\longrightarrow\\mathbb{F}_{${safeQ}}^{${data.n}},\\quad T(u)=uG`}
           />
 
           <p className="text">
-            La longitud n corresponde al número de columnas de G. La dimensión k
-            corresponde al número de filas de G. Por tanto, los mensajes
-            pertenecen a Fq^k y las palabras código pertenecen a Fq^n.
-          </p>
-
-          <p className="text">
-            La aplicación lineal T transforma cada mensaje u en una palabra
-            código mediante el producto uG. El conjunto de todas esas imágenes
-            constituye el código lineal generado por G.
+            La longitud <Latex expr={"n"} /> corresponde al número de columnas
+            de <Latex expr={"G"} />. El número de filas es{" "}
+            <Latex expr={"k"} />, pero si las filas son dependientes, la
+            dimensión real del código es el rango de <Latex expr={"G"} />.
           </p>
         </div>
 
@@ -374,13 +611,22 @@ export default function Page() {
           <MatrixLatex name="H" matrix={data.H} />
 
           <label>Palabra recibida y</label>
+
           <input value={y} onChange={(e) => setY(e.target.value)} />
 
+          <Latex block expr={`y=(${yy.join(",")})`} />
           <Latex block expr={`s=Hy^t=(${syn.join(",")})`} />
 
+          <span className={syn.every((x) => x === 0) ? "pill ok" : "pill warn"}>
+            {syn.every((x) => x === 0)
+              ? "Síndrome cero: y pertenece al código"
+              : "Síndrome no cero: y no pertenece al código o contiene error"}
+          </span>
+
           <p className="text">
-            La matriz H se calcula como una base del núcleo de G. Una palabra y
-            pertenece al código si y solo si su síndrome es cero.
+            La matriz <Latex expr={"H"} /> se calcula como una base del núcleo de{" "}
+            <Latex expr={"G"} />. Una palabra <Latex expr={"y"} /> pertenece al
+            código si y solo si su síndrome es cero.
           </p>
 
           <Latex block expr={`y\\in C\\Longleftrightarrow Hy^t=0`} />
@@ -393,28 +639,30 @@ export default function Page() {
         <div className="algo-box">
           <ol>
             <li>
-              Definir el espacio algebraico de trabajo, es decir, seleccionar q
-              para trabajar sobre Fq.
-            </li>
-            <li>Leer la matriz generadora G escrita por el usuario.</li>
-            <li>
-              Reducir todas las entradas de G módulo q para garantizar que sus
-              coordenadas pertenezcan a Fq.
+              Seleccionar <Latex expr={"q"} /> para trabajar sobre{" "}
+              <Latex expr={"\\mathbb{F}_q"} />.
             </li>
             <li>
-              Identificar k como el número de filas de G y n como el número de
-              columnas.
+              Leer la matriz generadora <Latex expr={"G"} /> escrita por el
+              usuario.
             </li>
-            <li>Generar todos los mensajes posibles u∈Fq^k.</li>
-            <li>Calcular el producto uG para cada mensaje.</li>
-            <li>Reducir cada coordenada de uG módulo q.</li>
-            <li>Guardar cada vector resultante como palabra código.</li>
-            <li>Eliminar duplicados, en caso de que existan.</li>
-            <li>Calcular el peso de Hamming de cada palabra.</li>
             <li>
-              Calcular la distancia mínima comparando pares de palabras código.
+              Verificar que <Latex expr={"G"} /> sea rectangular y tenga entradas
+              válidas módulo <Latex expr={"q"} />.
             </li>
-            <li>Calcular H como base del núcleo de G.</li>
+            <li>
+              Generar los mensajes <Latex expr={"u\\in\\mathbb{F}_q^k"} />.
+            </li>
+            <li>
+              Calcular <Latex expr={"uG"} /> para cada mensaje.
+            </li>
+            <li>
+              Eliminar duplicados si las filas de <Latex expr={"G"} /> son
+              dependientes.
+            </li>
+            <li>
+              Calcular pesos, distancia mínima y matriz de control.
+            </li>
           </ol>
         </div>
 
@@ -427,49 +675,51 @@ export default function Page() {
 
           <p className="text">
             La perforación elimina una coordenada fija de todas las palabras del
-            código. Si se elimina la coordenada i, se obtiene un nuevo código de
-            longitud n−1.
+            código.
           </p>
 
           <label>Coordenada a eliminar</label>
+
           <input
             type="number"
             value={pp}
+            min={1}
+            max={data.n}
             onChange={(e) => setPp(+e.target.value || 1)}
           />
 
           <Latex
             block
-            expr={`\\mathring{C}(${pp})=\\{(c_1,\\ldots,c_{${
-              data.n - 1
-            }}):c\\in C\\}`}
+            expr={`\\mathring{C}(${puncturePosition})=\\{\\text{palabras de }C\\text{ sin la coordenada }${puncturePosition}\\}`}
           />
 
-          <CodeSet label="C_p" codewords={pun} />
+          <CodeSet label={`\\mathring{C}(${puncturePosition})`} codewords={pun} />
         </div>
 
         <div className="card">
           <h2>7. Reducción</h2>
 
           <p className="text">
-            La reducción primero conserva solamente las palabras cuya coordenada
-            seleccionada es cero. Después elimina esa coordenada. Por eso la
-            reducción puede producir menos palabras que la perforación.
+            La reducción conserva solamente las palabras cuya coordenada
+            seleccionada es cero y luego elimina esa coordenada.
           </p>
 
           <label>Coordenada de reducción</label>
+
           <input
             type="number"
             value={sp}
+            min={1}
+            max={data.n}
             onChange={(e) => setSp(+e.target.value || 1)}
           />
 
           <Latex
             block
-            expr={`\\breve{C}(${sp})=\\{\\text{palabras de }C\\text{ con }c_{${sp}}=0\\text{, eliminando esa coordenada}\\}`}
+            expr={`\\breve{C}(${reductionPosition})=\\{c\\in C:c_{${reductionPosition}}=0\\text{, eliminando esa coordenada}\\}`}
           />
 
-          <CodeSet label="C_r" codewords={red} />
+          <CodeSet label={`\\breve{C}(${reductionPosition})`} codewords={red} />
         </div>
 
         <div className="card">
@@ -477,14 +727,16 @@ export default function Page() {
 
           <p className="text">
             Un código equivalente se obtiene aplicando una permutación de
-            coordenadas. Esta operación conserva la distancia de Hamming porque
-            no cambia los símbolos, solo su posición.
+            coordenadas. Esta operación conserva la distancia de Hamming.
           </p>
 
           <label>Permutación de coordenadas</label>
+
           <input value={perm} onChange={(e) => setPerm(e.target.value)} />
 
           <Latex block expr={`C_{eq}=\\pi(C)`} />
+
+          <p className="mini">{describeAffectedColumns(parsedPerm.indices)}.</p>
 
           <CodeSet label="C_{eq}" codewords={eq} />
         </div>
@@ -494,10 +746,18 @@ export default function Page() {
         <h2>9. Tabla de mensajes y productos uG</h2>
 
         <p className="text">
-          Esta tabla muestra la correspondencia entre cada mensaje u y su
-          palabra código uG. Es la evidencia computacional principal de la
-          construcción del código lineal.
+          Esta tabla muestra la correspondencia entre cada mensaje{" "}
+          <Latex expr={"u"} /> y su palabra código <Latex expr={"uG"} />.
         </p>
+
+        {!data.completeGeneration && (
+          <p className="mini">
+            Advertencia: el espacio de mensajes tiene{" "}
+            <Latex expr={`${safeQ}^{${data.k}}=${data.totalMessages}`} />{" "}
+            elementos. Para mantener la página estable, se muestran los primeros{" "}
+            <Latex expr={`${MAX_MESSAGES}`} /> mensajes.
+          </p>
+        )}
 
         <div className="tablewrap">
           <table>
